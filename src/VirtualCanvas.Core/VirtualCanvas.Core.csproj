@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>VirtualCanvas.Core</RootNamespace>
+    <AssemblyName>VirtualCanvas.Core</AssemblyName>
+    <!-- Phase A: UI 프레임워크 의존 금지. Avalonia/WPF 참조 없음 -->
+  </PropertyGroup>
+
+</Project>

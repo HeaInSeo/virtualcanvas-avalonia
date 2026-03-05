@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="VirtualCanvas.Avalonia.DevApp.MainWindow"
+        Title="VirtualCanvas DevApp"
+        Width="1024" Height="768">
+
+  <!-- Phase A-1: 빈 창. A-5 이후 VirtualCanvas Control 추가 -->
+  <TextBlock Text="VirtualCanvas.Avalonia — Phase A-1 skeleton"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center" />
+
+</Window>

@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8FEA6B33-8577-4F50-AC0E-9E1CD7B52E71}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualCanvas.Core", "src\VirtualCanvas.Core\VirtualCanvas.Core.csproj", "{185EF3EE-74DE-4A14-B563-F4FAEB40A279}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualCanvas.Avalonia", "src\VirtualCanvas.Avalonia\VirtualCanvas.Avalonia.csproj", "{863136D4-6569-4451-8F51-B057C13DB219}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualCanvas.Avalonia.DevApp", "src\VirtualCanvas.Avalonia.DevApp\VirtualCanvas.Avalonia.DevApp.csproj", "{9867FFF5-9DE0-41E7-86D6-D8D8781341EB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{5A39FC80-B4E4-4094-A027-FF17F2119023}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualCanvas.Core.Tests", "tests\VirtualCanvas.Core.Tests\VirtualCanvas.Core.Tests.csproj", "{84585C00-255F-4118-94B3-B63F93C8E7DC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VirtualCanvas.Avalonia.Tests", "tests\VirtualCanvas.Avalonia.Tests\VirtualCanvas.Avalonia.Tests.csproj", "{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{185EF3EE-74DE-4A14-B563-F4FAEB40A279}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{185EF3EE-74DE-4A14-B563-F4FAEB40A279}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{185EF3EE-74DE-4A14-B563-F4FAEB40A279}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{185EF3EE-74DE-4A14-B563-F4FAEB40A279}.Release|Any CPU.Build.0 = Release|Any CPU
+		{863136D4-6569-4451-8F51-B057C13DB219}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{863136D4-6569-4451-8F51-B057C13DB219}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{863136D4-6569-4451-8F51-B057C13DB219}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{863136D4-6569-4451-8F51-B057C13DB219}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9867FFF5-9DE0-41E7-86D6-D8D8781341EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9867FFF5-9DE0-41E7-86D6-D8D8781341EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9867FFF5-9DE0-41E7-86D6-D8D8781341EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9867FFF5-9DE0-41E7-86D6-D8D8781341EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{84585C00-255F-4118-94B3-B63F93C8E7DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84585C00-255F-4118-94B3-B63F93C8E7DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84585C00-255F-4118-94B3-B63F93C8E7DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84585C00-255F-4118-94B3-B63F93C8E7DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{185EF3EE-74DE-4A14-B563-F4FAEB40A279} = {8FEA6B33-8577-4F50-AC0E-9E1CD7B52E71}
+		{863136D4-6569-4451-8F51-B057C13DB219} = {8FEA6B33-8577-4F50-AC0E-9E1CD7B52E71}
+		{9867FFF5-9DE0-41E7-86D6-D8D8781341EB} = {8FEA6B33-8577-4F50-AC0E-9E1CD7B52E71}
+		{84585C00-255F-4118-94B3-B63F93C8E7DC} = {5A39FC80-B4E4-4094-A027-FF17F2119023}
+		{AA2F8EF4-C527-4B70-B7B0-3204FE2106C8} = {5A39FC80-B4E4-4094-A027-FF17F2119023}
+	EndGlobalSection
+EndGlobal
