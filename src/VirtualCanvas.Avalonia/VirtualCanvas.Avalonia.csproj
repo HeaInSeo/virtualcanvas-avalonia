@@ -6,6 +6,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>VirtualCanvas.Avalonia</RootNamespace>
     <AssemblyName>VirtualCanvas.Avalonia</AssemblyName>
+
+    <!-- NuGet pack metadata -->
+    <PackageId>VirtualCanvas.Avalonia</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Authors>HeaInSeo</Authors>
+    <Description>Avalonia 11 port of the WPF VirtualCanvas control. Virtualizes ISpatialItem children via a priority quad-tree; supports pan/zoom, throttled async realization, and consumer-driven selection.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/HeaInSeo/virtualcanvas-avalonia</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>avalonia;canvas;virtualization;quadtree;spatial</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +25,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VirtualCanvas.Core\VirtualCanvas.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Include repo README in the NuGet package -->
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

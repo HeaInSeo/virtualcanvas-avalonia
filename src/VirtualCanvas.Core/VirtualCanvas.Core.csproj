@@ -7,6 +7,16 @@
     <RootNamespace>VirtualCanvas.Core</RootNamespace>
     <AssemblyName>VirtualCanvas.Core</AssemblyName>
     <!-- Phase A: UI 프레임워크 의존 금지. Avalonia/WPF 참조 없음 -->
+
+    <!-- NuGet pack metadata -->
+    <PackageId>VirtualCanvas.Core</PackageId>
+    <Version>0.1.0-dev</Version>
+    <Authors>HeaInSeo</Authors>
+    <Description>Framework-agnostic spatial primitives for VirtualCanvas: VCRect, ISpatialItem, ISpatialIndex, PriorityQuadTree, SpatialIndex.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/HeaInSeo/virtualcanvas-avalonia</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>canvas;virtualization;quadtree;spatial</PackageTags>
   </PropertyGroup>
 
 </Project>

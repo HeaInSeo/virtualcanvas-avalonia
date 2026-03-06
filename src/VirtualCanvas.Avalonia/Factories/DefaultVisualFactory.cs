@@ -7,7 +7,7 @@ namespace VirtualCanvas.Avalonia.Factories;
 /// No-op factory. <see cref="Realize"/> always returns <c>null</c>.
 /// Replace with a real implementation to display spatial items.
 /// </summary>
-internal sealed class DefaultVisualFactory : IVisualFactory
+public sealed class DefaultVisualFactory : IVisualFactory
 {
     public void BeginRealize() { }
     public Control? Realize(ISpatialItem item, bool force) => null;

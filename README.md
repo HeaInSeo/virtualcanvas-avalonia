@@ -142,6 +142,31 @@ Assign via `canvas.VisualFactory = new MyFactory();`.
 
 ---
 
+## Public API
+
+The stable public surface is fixed at **0.1.0-dev**. Breaking changes will bump the minor version.
+
+**`VirtualCanvas.Core`** (no UI dependency)
+
+| Type | Kind | Description |
+|------|------|-------------|
+| `VCRect` | `struct` | Axis-aligned rect; mirrors WPF `Rect` semantics |
+| `ISpatialItem` | `interface` | `Bounds`, `Priority`, `ZIndex`, `IsVisible` |
+| `ISpatialIndex` | `interface` | `GetItemsIntersecting`, `Changed`, `Extent` |
+| `PriorityQuadTree<T>` | `class` | Priority quad-tree; higher `Priority` returned first |
+| `SpatialIndex` | `class` | Concrete `ISpatialIndex` backed by `PriorityQuadTree<ISpatialItem>` |
+
+**`VirtualCanvas.Avalonia`**
+
+| Type | Kind | Description |
+|------|------|-------------|
+| `VirtualCanvas` | `Control` | Main canvas; `Items`, `Scale`, `Offset`, `SelectedItem`, `IsVirtualizing`, `ActualViewbox` |
+| `IVisualFactory` | `interface` | `Realize`, `Virtualize`, `BeginRealize`, `EndRealize` |
+| `DefaultVisualFactory` | `class` | No-op factory (returns null; nothing rendered) |
+| `SpatialSelectionChangedEventArgs` | `sealed class` | `OldItem`, `NewItem` for `SelectionChanged` |
+
+---
+
 ## xUnit Version Pin
 
 `tests/VirtualCanvas.Avalonia.Tests` is pinned to **xunit 2.6.2** (not 2.9.0).
