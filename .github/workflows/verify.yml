@@ -1,0 +1,181 @@
+name: Verify
+
+# ── Triggers ────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# ── Concurrency ─────────────────────────────────────────────────────────
+# Cancel any in-flight run for the same ref when a new one starts.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+# ── Permissions ─────────────────────────────────────────────────────────
+# Minimum required. security-events: write is only needed for CodeQL
+# (not included in this phase — see docs/TESTING.md for scope notes).
+permissions:
+  contents: read
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════
+  # JOB: Build · Test
+  # ═══════════════════════════════════════════════════════════════════════
+  verify:
+    name: "Build · Test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ── 2. .NET 8 SDK ────────────────────────────────────────────────
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # ── 3. NuGet cache ───────────────────────────────────────────────
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # ── 4. Restore ───────────────────────────────────────────────────
+      - name: Restore dependencies
+        run: dotnet restore VirtualCanvas.Avalonia.sln
+
+      # ── 5. Build ─────────────────────────────────────────────────────
+      - name: Build
+        id: build
+        run: |
+          dotnet build VirtualCanvas.Avalonia.sln \
+            --no-restore \
+            --configuration Release \
+            --verbosity normal \
+            2>&1 | tee /tmp/build_output.txt
+
+          BUILD_EXIT=${PIPESTATUS[0]}
+          echo "build_exit=$BUILD_EXIT" >> "$GITHUB_OUTPUT"
+          exit $BUILD_EXIT
+
+      # ── 6. Test + coverage ───────────────────────────────────────────
+      # Runs both test projects via the solution.
+      # Avalonia.Headless tests run without a display server (UseHeadlessDrawing=true).
+      # xunit is pinned to 2.6.2 in VirtualCanvas.Avalonia.Tests — see docs/TESTING.md.
+      - name: Test with coverage
+        id: test
+        run: |
+          dotnet test VirtualCanvas.Avalonia.sln \
+            --no-build \
+            --configuration Release \
+            --logger "trx" \
+            --results-directory ./test-results \
+            --collect:"XPlat Code Coverage" \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
+            2>&1 | tee /tmp/test_output.txt
+
+          TEST_EXIT=${PIPESTATUS[0]}
+
+          # Sum counts across both test projects.
+          PASSED=$(grep -oP "Passed:\s+\K[0-9]+"  /tmp/test_output.txt | awk '{s+=$1}END{print s+0}')
+          FAILED=$(grep -oP "Failed:\s+\K[0-9]+"  /tmp/test_output.txt | awk '{s+=$1}END{print s+0}')
+          SKIPPED=$(grep -oP "Skipped:\s+\K[0-9]+" /tmp/test_output.txt | awk '{s+=$1}END{print s+0}')
+          TOTAL=$(grep -oP "Total:\s+\K[0-9]+"    /tmp/test_output.txt | awk '{s+=$1}END{print s+0}')
+
+          # Line coverage from the first Cobertura file found (Core library).
+          COV_FILE=$(find ./test-results -name "coverage.cobertura.xml" 2>/dev/null | sort | head -1)
+          if [ -n "$COV_FILE" ]; then
+            LINE_RATE=$(grep -oP 'line-rate="\K[0-9.]+' "$COV_FILE" | head -1 || echo "0")
+            COVERAGE_PCT=$(awk "BEGIN { printf \"%.0f\", $LINE_RATE * 100 }")
+          else
+            COVERAGE_PCT="N/A"
+          fi
+
+          echo "passed=$PASSED"             >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED"             >> "$GITHUB_OUTPUT"
+          echo "skipped=$SKIPPED"           >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL"               >> "$GITHUB_OUTPUT"
+          echo "coverage_pct=$COVERAGE_PCT" >> "$GITHUB_OUTPUT"
+          echo "test_exit=$TEST_EXIT"       >> "$GITHUB_OUTPUT"
+
+          exit $TEST_EXIT
+
+      # ── 7. Upload test results (TRX) ────────────────────────────────
+      - name: Upload test results (TRX)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-trx
+          path: ./test-results/*.trx
+          retention-days: 30
+
+      # ── 8. Upload coverage report (Cobertura) ───────────────────────
+      - name: Upload coverage report (Cobertura)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: ./test-results/**/coverage.cobertura.xml
+          retention-days: 30
+
+      # ── 9. Job summary ───────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        env:
+          BUILD_EXIT: ${{ steps.build.outputs.build_exit }}
+          PASSED:     ${{ steps.test.outputs.passed }}
+          FAILED:     ${{ steps.test.outputs.failed }}
+          SKIPPED:    ${{ steps.test.outputs.skipped }}
+          TOTAL:      ${{ steps.test.outputs.total }}
+          COVERAGE:   ${{ steps.test.outputs.coverage_pct }}
+          TEST_EXIT:  ${{ steps.test.outputs.test_exit }}
+        run: |
+          {
+            echo "## Verify Report"
+            echo ""
+            echo "> Branch: \`${{ github.ref_name }}\` | Commit: \`${{ github.sha }}\`"
+            echo ""
+
+            # ── Build ─────────────────────────────────────────────────
+            echo "### Build"
+            if [ "$BUILD_EXIT" = "0" ]; then
+              echo "| Status |"
+              echo "| --- |"
+              echo "| OK |"
+            else
+              echo "| Status |"
+              echo "| --- |"
+              echo "| **FAIL** |"
+            fi
+            echo ""
+
+            # ── Tests ─────────────────────────────────────────────────
+            echo "### Tests"
+            echo ""
+            echo "| Passed | Failed | Skipped | Total | Line coverage |"
+            echo "| --- | --- | --- | --- | --- |"
+            echo "| $PASSED | $FAILED | $SKIPPED | $TOTAL | ${COVERAGE}% |"
+            echo ""
+            if [ "$FAILED" = "0" ] && [ "$TOTAL" != "0" ]; then
+              echo "> All tests passed."
+            elif [ "$FAILED" != "0" ]; then
+              echo "> **$FAILED test(s) failed** — check logs."
+            fi
+            echo ""
+
+            # ── Artifacts ─────────────────────────────────────────────
+            echo "### Artifacts"
+            echo ""
+            echo "- **test-results-trx**: TRX files (importable in VS/Rider)"
+            echo "- **coverage-cobertura**: Cobertura XML per test project"
+            echo ""
+            echo "> Test environment notes: see [docs/TESTING.md](docs/TESTING.md)"
+
+          } >> "$GITHUB_STEP_SUMMARY"
