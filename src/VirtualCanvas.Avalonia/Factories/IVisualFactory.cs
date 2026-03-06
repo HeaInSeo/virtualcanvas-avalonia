@@ -9,7 +9,20 @@ namespace VirtualCanvas.Avalonia.Factories;
 /// </summary>
 public interface IVisualFactory
 {
-    /// <summary>Called before a batch of <see cref="Realize"/> calls.</summary>
+    /// <summary>
+    /// Called before a batch of <see cref="Realize"/> calls.
+    /// <para>
+    /// <b>Nesting contract:</b> <c>BeginRealize</c>/<c>EndRealize</c> may be called in
+    /// nested pairs — once for the overall realization pass and once per throttled batch
+    /// within it. This mirrors the WPF reference implementation. Stateful factories must
+    /// handle nested calls idempotently (e.g., ref-count or ignore if already open).
+    /// </para>
+    /// <para>
+    /// <b>Resource scope:</b> <c>BeginRealize</c>/<c>EndRealize</c> delimit a logical
+    /// resource scope (e.g., open a shared cache or transaction). Implementations must
+    /// not rely on the exact call count; only the outermost scope matters.
+    /// </para>
+    /// </summary>
     void BeginRealize();
 
     /// <summary>
@@ -24,6 +37,9 @@ public interface IVisualFactory
     /// </summary>
     bool Virtualize(Control visual);
 
-    /// <summary>Called after a batch of <see cref="Realize"/> calls.</summary>
+    /// <summary>
+    /// Called after a batch of <see cref="Realize"/> calls.
+    /// Paired with <see cref="BeginRealize"/>; see its nesting and resource-scope contract.
+    /// </summary>
     void EndRealize();
 }

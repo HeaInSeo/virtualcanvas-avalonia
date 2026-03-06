@@ -142,7 +142,9 @@ public partial class VirtualCanvas
 
     /// <summary>
     /// Performs one chunk of <see cref="RealizeOverride"/>.
-    /// Returns non-null if more work remains.
+    /// Returns non-null if more work remains, null when the pass is complete.
+    /// Does NOT touch <c>_realizeCts</c> — ownership stays with <c>continueAction</c>
+    /// so the <c>ReferenceEquals</c> guard there can detect normal completion.
     /// </summary>
     private IEnumerator? RealizeCore(IEnumerator? enumerator)
     {
@@ -150,7 +152,6 @@ public partial class VirtualCanvas
         if (realizationEnumerator.MoveNext())
             return realizationEnumerator;
 
-        _realizeCts = null;
         return null;
     }
 

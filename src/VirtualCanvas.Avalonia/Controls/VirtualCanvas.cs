@@ -301,7 +301,10 @@ public partial class VirtualCanvas : Control
         {
             _sortedVisuals.RemoveAt(idx);
             VisualChildren.RemoveAt(idx);
-            LogicalChildren.RemoveAt(idx);
+            // Reference-based removal: LogicalChildren may be out of order with
+            // _sortedVisuals after a ZIndex reorder (see UpdateVisualChildZIndex),
+            // so index-based RemoveAt would remove the wrong element.
+            LogicalChildren.Remove(visual);
         }
     }
 
@@ -313,7 +316,9 @@ public partial class VirtualCanvas : Control
 
         _sortedVisuals.RemoveAt(oldIdx);
         VisualChildren.RemoveAt(oldIdx);
-        // LogicalChildren ordering does not affect rendering; skip re-insert.
+        // LogicalChildren is intentionally NOT reordered here.
+        // Its ordering may diverge from _sortedVisuals/VisualChildren after this call.
+        // Removal always uses reference-based lookup (see RemoveVisualChildInternal).
 
         int newIdx = FindInsertIndex(newZIndex);
         _sortedVisuals.Insert(newIdx, (visual, newZIndex));
