@@ -1,12 +1,35 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vc="clr-namespace:VirtualCanvas.Avalonia.Controls;assembly=VirtualCanvas.Avalonia"
         x:Class="VirtualCanvas.Avalonia.DevApp.MainWindow"
         Title="VirtualCanvas DevApp"
-        Width="1024" Height="768">
+        Width="1200" Height="800">
 
-  <!-- Phase A-1: 빈 창. A-5 이후 VirtualCanvas Control 추가 -->
-  <TextBlock Text="VirtualCanvas.Avalonia — Phase A-1 skeleton"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+  <DockPanel>
+
+    <!-- Status bar (2 rows) -->
+    <Border DockPanel.Dock="Bottom"
+            Background="#2D2D30"
+            Padding="8,3">
+      <StackPanel Spacing="1">
+        <TextBlock x:Name="StatusText"
+                   Foreground="#CCCCCC"
+                   FontSize="11"
+                   Text="Drag to pan · Scroll to zoom"/>
+        <TextBlock x:Name="TelemetryText"
+                   Foreground="#888888"
+                   FontSize="10"
+                   Text="Frame: — ms  Pan: —/s  Zoom: —/s  Realize: —/s  Δrealized: —  Alloc: — KB/s (UI thread)"/>
+      </StackPanel>
+    </Border>
+
+    <!-- VirtualCanvas fills remaining space -->
+    <Border Background="#1E1E1E">
+      <vc:VirtualCanvas x:Name="Canvas"
+                        ClipToBounds="True"
+                        Cursor="Hand"/>
+    </Border>
+
+  </DockPanel>
 
 </Window>

@@ -33,6 +33,15 @@ public partial class VirtualCanvas : Control
     public static readonly StyledProperty<Point> OffsetProperty =
         AvaloniaProperty.Register<VirtualCanvas, Point>(nameof(Offset));
 
+    /// <summary>
+    /// The currently selected spatial item, or <c>null</c> if nothing is selected.
+    /// Set this property (e.g., from a hit-test result) to change the selection;
+    /// the <see cref="SelectionChanged"/> event will fire and the consumer is
+    /// responsible for updating visual styles.
+    /// </summary>
+    public static readonly StyledProperty<ISpatialItem?> SelectedItemProperty =
+        AvaloniaProperty.Register<VirtualCanvas, ISpatialItem?>(nameof(SelectedItem));
+
     private VCRect _actualViewbox = VCRect.Empty;
     public static readonly DirectProperty<VirtualCanvas, VCRect> ActualViewboxProperty =
         AvaloniaProperty.RegisterDirect<VirtualCanvas, VCRect>(
@@ -73,6 +82,13 @@ public partial class VirtualCanvas : Control
         set => SetValue(OffsetProperty, value);
     }
 
+    /// <inheritdoc cref="SelectedItemProperty"/>
+    public ISpatialItem? SelectedItem
+    {
+        get => GetValue(SelectedItemProperty);
+        set => SetValue(SelectedItemProperty, value);
+    }
+
     public VCRect ActualViewbox => _actualViewbox;
 
     #endregion
@@ -84,6 +100,17 @@ public partial class VirtualCanvas : Control
     public event EventHandler? VisualChildrenChanged;
     public event EventHandler? Measuring;
     public event EventHandler? Measured;
+
+    /// <summary>
+    /// Raised when <see cref="SelectedItem"/> changes.
+    /// <para>
+    /// <b>Consumer contract:</b> The consumer (DevApp, dagedit, etc.) is responsible
+    /// for applying or removing visual styles in response to this event.
+    /// VirtualCanvas does not modify any child control's appearance.
+    /// Use <see cref="VisualFromItem"/> to obtain the realized control for styling.
+    /// </para>
+    /// </summary>
+    public event EventHandler<SpatialSelectionChangedEventArgs>? SelectionChanged;
 
     #endregion
 
@@ -97,6 +124,7 @@ public partial class VirtualCanvas : Control
         IsVirtualizingProperty.Changed.AddClassHandler<VirtualCanvas>((c, _) => c.InvalidateReality());
         UseRenderTransformProperty.Changed.AddClassHandler<VirtualCanvas>((c, _) => c.OnUseRenderTransformChanged());
         BoundsProperty.Changed.AddClassHandler<VirtualCanvas>((c, _) => c.UpdateActualViewbox());
+        SelectedItemProperty.Changed.AddClassHandler<VirtualCanvas>((c, e) => c.OnSelectedItemPropertyChanged(e));
     }
 
     #endregion
@@ -193,6 +221,13 @@ public partial class VirtualCanvas : Control
     }
 
     private void OnUseRenderTransformChanged() => UpdateRenderTransform();
+
+    private void OnSelectedItemPropertyChanged(AvaloniaPropertyChangedEventArgs e)
+        => OnSelectionChanged(e.OldValue as ISpatialItem, e.NewValue as ISpatialItem);
+
+    /// <summary>Fires <see cref="SelectionChanged"/>. Override to add subclass logic.</summary>
+    protected virtual void OnSelectionChanged(ISpatialItem? oldItem, ISpatialItem? newItem)
+        => SelectionChanged?.Invoke(this, new SpatialSelectionChangedEventArgs(oldItem, newItem));
 
     #endregion
 
