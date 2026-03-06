@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- Verifies the public API is sufficient for an external consumer.
+         Uses only public types from VirtualCanvas.Avalonia — no shared test helpers. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <!-- xunit 2.6.2 pinned: required by Avalonia.Headless.XUnit 11.0.0 (see docs/TESTING.md) -->
+    <PackageReference Include="xunit" Version="2.6.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="11.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Simulates an external consumer: references only the library project. -->
+    <ProjectReference Include="..\..\src\VirtualCanvas.Avalonia\VirtualCanvas.Avalonia.csproj" />
+  </ItemGroup>
+
+</Project>
