@@ -4,6 +4,8 @@ Avalonia 11 port of the [Microsoft WPF VirtualCanvas](https://github.com/microso
 
 Renders hundreds of thousands of spatial items on an infinite, pannable, zoomable canvas by **virtualizing** children: only items whose world-space bounds intersect the current viewport are realized as Avalonia controls. The rest are kept as lightweight data in a priority quad-tree.
 
+VCA is **rendering and virtualization infrastructure** — it owns spatial lookup, viewport culling, and control lifecycle. Selection policy, editor commands, and interaction UX belong to the consuming application (e.g., DagEdit).
+
 ---
 
 ## Features
@@ -18,7 +20,7 @@ Renders hundreds of thousands of spatial items on an infinite, pannable, zoomabl
 | `SpatialIndex` concrete adapter | ✅ |
 | Consumer-driven selection via `SelectionChanged` event | ✅ |
 | DevApp with pan, zoom, hit-test selection, telemetry | ✅ |
-| CI (dotnet build + test) | ✅ |
+| CI (build · test · pack validation) | ✅ |
 
 ---
 
@@ -46,8 +48,9 @@ src/
     Telemetry/PerformanceTelemetry.cs  Frame time, event rates, GC alloc
 
 tests/
-  VirtualCanvas.Core.Tests/      xunit 2.9.0
-  VirtualCanvas.Avalonia.Tests/  xunit 2.6.2 + Avalonia.Headless.XUnit 11.0.0
+  VirtualCanvas.Core.Tests/         xunit 2.9.0
+  VirtualCanvas.Avalonia.Tests/     xunit 2.6.2 + Avalonia.Headless.XUnit 11.0.0
+  VirtualCanvas.Avalonia.SmokeTests/ xunit 2.6.2, consumer public-API only
 ```
 
 ---
@@ -66,7 +69,7 @@ dotnet build
 dotnet test
 ```
 
-All 41 tests should pass (36 Core + 5 Avalonia headless).
+All **53 tests** should pass (36 Core + 13 Avalonia headless + 4 Smoke).
 
 ## Run DevApp
 
@@ -105,6 +108,16 @@ world_x  = (screen_x + offset_x) / scale
 ```
 
 `Scale` and `Offset` are `StyledProperty`s; changing them updates `ActualViewbox` and triggers re-virtualization.
+
+**Integration mapping** (e.g., DagEdit):
+
+| VCA | Consumer equivalent |
+|-----|---------------------|
+| `Scale` | `ViewportScale` |
+| `Offset` | `ViewportLocation` |
+| `ActualViewbox` | derived: `new Rect(Offset / Scale, ControlSize / Scale)` |
+
+`ActualViewbox.X = Offset.X / Scale` — this formula is locked by [`ViewportContractTests`](tests/VirtualCanvas.Avalonia.Tests/ViewportContractTests.cs).
 
 ### Selection Contract
 
@@ -152,18 +165,32 @@ The stable public surface is fixed at **0.1.0-dev**. Breaking changes will bump 
 |------|------|-------------|
 | `VCRect` | `struct` | Axis-aligned rect; mirrors WPF `Rect` semantics |
 | `ISpatialItem` | `interface` | `Bounds`, `Priority`, `ZIndex`, `IsVisible` |
-| `ISpatialIndex` | `interface` | `GetItemsIntersecting`, `Changed`, `Extent` |
+| `ISpatialIndex` | `interface` | Extends `IEnumerable<ISpatialItem>`; `GetItemsIntersecting`, `HasItemsIntersecting`, `GetItemsInside`, `HasItemsInside`, `Changed`, `Extent` |
 | `PriorityQuadTree<T>` | `class` | Priority quad-tree; higher `Priority` returned first |
-| `SpatialIndex` | `class` | Concrete `ISpatialIndex` backed by `PriorityQuadTree<ISpatialItem>` |
+| `SpatialIndex` | `class` | Concrete `ISpatialIndex` backed by `PriorityQuadTree<ISpatialItem>`; `Insert(item)`, `RaiseChanged()`, `Clear()` |
 
-**`VirtualCanvas.Avalonia`**
+**`VirtualCanvas.Avalonia`** — Stable contract
 
-| Type | Kind | Description |
-|------|------|-------------|
-| `VirtualCanvas` | `Control` | Main canvas; `Items`, `Scale`, `Offset`, `SelectedItem`, `IsVirtualizing`, `ActualViewbox` |
+| Type / Member | Kind | Description |
+|---------------|------|-------------|
+| `VirtualCanvas` | `Control` | Virtualization canvas (infra — not an editor widget) |
+| ↳ Stable props | | `Items`, `Scale`, `Offset`, `SelectedItem`, `IsVirtualizing`, `ActualViewbox`, `UseRenderTransform`, `VisualFactory` |
+| ↳ Stable events | | `SelectionChanged`, `RealizationCompleted` |
+| ↳ Stable methods | | `VisualFromItem(item)`, `ItemFromVisual(visual)` |
 | `IVisualFactory` | `interface` | `Realize`, `Virtualize`, `BeginRealize`, `EndRealize` |
 | `DefaultVisualFactory` | `class` | No-op factory (returns null; nothing rendered) |
 | `SpatialSelectionChangedEventArgs` | `sealed class` | `OldItem`, `NewItem` for `SelectionChanged` |
+
+**`VirtualCanvas.Avalonia`** — Advanced / provisional
+
+The following members are part of the public surface but are **infrastructure-level** and may change between minor versions. See XML IntelliSense for details.
+
+| Member(s) | Notes |
+|-----------|-------|
+| `ThrottlingLimit`, `IsPaused`, `ComputeOutlineGeometry` | Throttling and layout tuning |
+| `RealizeItem`, `ForceVirtualizeItem`, `RealizeItems`, `Clear` | Direct virtualization control |
+| `GetVisualChildren`, `BeginUpdate`, `EndUpdate`, `InvalidateReality`, `NotifyOnRealizationCompleted` | Realization lifecycle hooks |
+| `OffsetChanged`, `ScaleChanged`, `VisualChildrenChanged`, `Measuring`, `Measured`, `BeginChanges`, `EndChanges` | View-state and layout notifications |
 
 ---
 
@@ -191,4 +218,5 @@ Key divergences from WPF:
 
 ## License
 
-MIT — see [LICENSE](LICENSE) (original WPF VirtualCanvas: © Microsoft Corporation, MIT).
+MIT — see [LICENSE](LICENSE).
+Original WPF VirtualCanvas: © Microsoft Corporation, MIT.

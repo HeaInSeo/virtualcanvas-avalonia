@@ -153,6 +153,34 @@
 
 ---
 
+### [DEC-014] Viewport contract test 범위: origin only (Width/Height 제외)
+- **날짜**: 2026-03-07
+- **결정**: `ViewportContractTests`에서 `ActualViewbox.X/Y`(origin)만 테스트. Width/Height는 테스트하지 않음.
+- **이유**:
+  - `ActualViewbox.Width = Bounds.Width / Scale`에서 `Bounds`는 Avalonia 레이아웃 패스 이후에만 유효
+  - 헤드리스 테스트에서 `VirtualCanvas`를 Window에 호스팅하지 않으면 `Bounds = (0,0)` → Width/Height 항상 0
+  - Origin(`X/Y`)은 `Offset`과 `Scale`만으로 계산되므로 레이아웃 없이도 정확히 검증 가능
+  - DagEdit 통합 seam의 핵심은 "특정 화면 좌표가 어느 world 좌표에 해당하는가" → origin 공식이 그 seam
+- **기대 효과**: 레이아웃 복잡도 없이 좌표 계약을 잠금. Width/Height는 `Bounds.Size`에서 직접 파생되는 trivial 계산이라 별도 회귀 위험 낮음.
+
+---
+
+### [DEC-015] Public API: stable contract vs advanced/provisional 이단계 분류
+- **날짜**: 2026-03-07
+- **결정**: README Public API 섹션을 "Stable contract"와 "Advanced / provisional"로 분리.
+- **Stable contract**:
+  - Properties: `Items`, `Scale`, `Offset`, `SelectedItem`, `IsVirtualizing`, `ActualViewbox`, `UseRenderTransform`, `VisualFactory`
+  - Events: `SelectionChanged`, `RealizationCompleted`
+  - Methods: `VisualFromItem`, `ItemFromVisual`
+- **Advanced / provisional**: `ThrottlingLimit`, `IsPaused`, `ComputeOutlineGeometry`, `RealizeItem`, `ForceVirtualizeItem`, `RealizeItems`, `Clear`, `GetVisualChildren`, `BeginUpdate`, `EndUpdate`, `InvalidateReality`, `NotifyOnRealizationCompleted`, 모든 lifecycle events
+- **이유**:
+  - DagEdit 통합 시 소비자가 사용할 API와 내부 기계 장치 API를 README 수준에서 구분
+  - "Stable" 목록은 DagEdit와의 통합 계약으로 간주, 변경 시 minor version 범프
+  - "Advanced/provisional"은 미래 리팩토링(스로틀링 알고리즘 변경, 라이프사이클 훅 재설계 등)에서 변경될 수 있음
+  - API surface를 줄이지 않고 문서만으로 기대치를 설정하는 점진적 접근
+
+---
+
 ### [DEC-013] Multi-selection 보류: DagEdit 경계 분석 우선
 - **날짜**: 2026-03-07
 - **결정**: 다중 선택(`SelectedItems`, `SelectionMode`), 러버밴드 선택, 키보드 내비게이션을 VCA Phase D-1 이전으로 보류

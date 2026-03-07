@@ -23,6 +23,7 @@
 | C-0 | Library boundary hardening | ✅ 완료 | SelectedItem StyledProperty, SelectionChanged |
 | C-1 | 패키징 / 소비 가능성 고정 | ✅ 완료 | pack metadata, smoke tests 4개 |
 | D-0 | Release hardening | ✅ 완료 | CHANGELOG, XML docs, CI pack 검증 |
+| D-0.1 | Contract alignment pass | ✅ 완료 | LICENSE, viewport contract 테스트 8개, README/API 표 정렬 |
 | D-1 | DagEdit 통합 분석 | 🔲 대기 | VCA → DagEdit 렌더링 백엔드 적합성 평가 |
 | D-2 | 다중 선택 | 🔲 보류 | DagEdit 경계 분석 후 판단 |
 | E | 1.0.0 릴리스 | 🔲 예정 | API 안정화, NuGet publish |
@@ -219,6 +220,27 @@
   - 45 tests 전원 통과
 - **public API 영향**: 없음 (XML docs 추가는 API surface 변경 아님)
 - **결정 참조**: DEC-009 (GenerateDocumentationFile), DEC-010 (publish 자동화 보류)
+
+---
+
+### [D-0.1] Contract Alignment Pass
+- **날짜**: 2026-03-07
+- **수행 내용**:
+  - `LICENSE` 신규 (MIT, WPF 원본 copyright 포함)
+  - `ViewportContractTests.cs` 신규 — 8개 테스트로 좌표 계약 잠금
+    - 4개 `[Fact]`: WorldToScreen/ScreenToWorld 공식, RoundTrip, ZoomPivot
+    - 4개 `[AvaloniaFact]`: ActualViewbox.X/Y = Offset / Scale 검증
+  - `README.md` 정렬:
+    - VCA infra identity 문장 추가 ("not an editor widget")
+    - CI 기능 행 업데이트 (pack validation 포함)
+    - SmokeTests 프로젝트 구조 추가
+    - 테스트 개수: 41 → 53 (36 + 13 + 4)
+    - Coordinate System: DagEdit 매핑 표 추가 (Scale↔ViewportScale, Offset↔ViewportLocation)
+    - Public API: ISpatialIndex 전체 멤버 기재, SpatialIndex Insert/RaiseChanged/Clear 추가
+    - VirtualCanvas: stable contract vs advanced/provisional 이단계 분류
+    - LICENSE 링크 수정 (파일 실제 생성)
+- **검증 지표**: 53/53 tests 통과, pack 경고 0
+- **결정 참조**: DEC-014 (viewport contract test 범위), DEC-015 (stable vs provisional 분류)
 
 ---
 
