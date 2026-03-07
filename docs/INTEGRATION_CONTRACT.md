@@ -7,14 +7,14 @@ Status:         initial-draft
 Change-Type:    Major (first issuance)
 Canonical-Repo: virtualcanvas-avalonia
 Canonical-Path: docs/INTEGRATION_CONTRACT.md
-Mirrored-In:    DagEdit/docs/viewport-contract.md  (pending sync)
+Mirrored-In:    HeaInSeo/DagEdit / docs/INTEGRATION_CONTRACT.md
 Last-Updated:   2026-03-07
-Last-Synced:    —  (not yet synced to mirror)
+Last-Synced:    2026-03-07 (header-only; body semantic sync pending)
 ```
 
 > **Canonical source rule**: This file in the `virtualcanvas-avalonia` repo is the
 > single authoritative version of the shared integration contract.
-> The mirror in `DagEdit/docs/viewport-contract.md` must be kept in sync after
+> The mirror in `HeaInSeo/DagEdit/docs/INTEGRATION_CONTRACT.md` must be kept in sync after
 > every Minor or Major change. Patch-level edits do not require a sync trigger.
 
 ---

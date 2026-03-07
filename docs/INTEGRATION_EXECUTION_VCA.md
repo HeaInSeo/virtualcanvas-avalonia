@@ -246,18 +246,15 @@ Before merging any VCA change, answer:
 
 ## 10. Next Single Small Diff
 
-**Proposed**: Mirror `INTEGRATION_CONTRACT.md` to DagEdit repo.
+**Completed (2026-03-07)**: DagEdit repo now has `docs/INTEGRATION_CONTRACT.md` as
+the mirror file. Header-level sync against canonical v0.1.0 is done.
 
-Specifically:
-1. In `DagEdit/docs/viewport-contract.md`, add a header noting it is a mirror of
-   `virtualcanvas-avalonia/docs/INTEGRATION_CONTRACT.md` v0.1.0.
-2. Retain DagEdit-specific sections (Sync Architecture diagram, `_syncingViewport`
-   implementation note, test file table) as DagEdit-local additions.
-3. Record the sync in `INTEGRATION_CONTRACT.md` header: `Last-Synced: 2026-03-07`.
+**Next proposed**: Body semantic sync — verify that the mirror's body sections
+(responsibility boundary, classification, staged path, risks) are semantically
+equivalent to the canonical. Record completion by updating `Last-Synced` in canonical
+from "header-only" to "full".
 
-**This does not require any VCA code change.** It is a DagEdit-side document update.
-
-Alternative next diff (if mirror is deferred):
+**Alternative next diff** (if body sync is deferred):
 - Risk C spike: prototype `Node` virtualize/re-realize cycle in a headless test
   to verify lifecycle correctness before Stage 1 commits.
 
@@ -267,11 +264,10 @@ Alternative next diff (if mirror is deferred):
 
 ```
 Canonical contract version:  0.1.0
-Mirror (DagEdit):             docs/viewport-contract.md  — NOT YET SYNCED
-Sync required after:          Initial issuance (Major change)
-Action needed:                Update DagEdit mirror with contract header,
-                              record Last-Synced date in canonical.
-Who triggers:                 Author of next DagEdit session.
+Mirror (DagEdit):             docs/INTEGRATION_CONTRACT.md  — header-only sync done 2026-03-07
+Body semantic sync:           Pending (not yet verified for full equivalence)
+Next sync action:             Verify body sections → update Last-Synced to "full" in canonical
+Who triggers:                 Author of next DagEdit or VCA session that reviews body.
 ```
 
 **Rule**: Do not edit `docs/INTEGRATION_CONTRACT.md` directly to propose changes.
