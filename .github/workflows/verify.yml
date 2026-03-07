@@ -125,7 +125,42 @@ jobs:
           path: ./test-results/**/coverage.cobertura.xml
           retention-days: 30
 
-      # ── 9. Job summary ───────────────────────────────────────────────
+      # ── 9. Pack validation ───────────────────────────────────────────
+      # Verifies that dotnet pack succeeds and produces valid .nupkg files
+      # for both library projects. Does NOT push to NuGet.
+      - name: Pack – VirtualCanvas.Core
+        id: pack_core
+        run: |
+          dotnet pack src/VirtualCanvas.Core/VirtualCanvas.Core.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./nupkg/core
+
+      - name: Pack – VirtualCanvas.Avalonia
+        id: pack_avalonia
+        run: |
+          dotnet pack src/VirtualCanvas.Avalonia/VirtualCanvas.Avalonia.csproj \
+            --no-build \
+            --configuration Release \
+            --output ./nupkg/avalonia
+
+      - name: Upload nupkg – VirtualCanvas.Core
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-core
+          path: ./nupkg/core/*.nupkg
+          retention-days: 30
+
+      - name: Upload nupkg – VirtualCanvas.Avalonia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-avalonia
+          path: ./nupkg/avalonia/*.nupkg
+          retention-days: 30
+
+      # ── 10. Job summary ──────────────────────────────────────────────
       - name: Write job summary
         if: always()
         env:
@@ -170,11 +205,34 @@ jobs:
             fi
             echo ""
 
+            # ── Pack ──────────────────────────────────────────────────
+            echo "### Pack"
+            echo ""
+            CORE_PKG=$(find ./nupkg/core -name "*.nupkg" 2>/dev/null | head -1)
+            AVA_PKG=$(find ./nupkg/avalonia -name "*.nupkg" 2>/dev/null | head -1)
+            echo "| Package | Status |"
+            echo "| --- | --- |"
+            if [ -n "$CORE_PKG" ]; then
+              echo "| VirtualCanvas.Core | OK (\`$(basename $CORE_PKG)\`) |"
+            else
+              echo "| VirtualCanvas.Core | **FAIL** |"
+            fi
+            if [ -n "$AVA_PKG" ]; then
+              echo "| VirtualCanvas.Avalonia | OK (\`$(basename $AVA_PKG)\`) |"
+            else
+              echo "| VirtualCanvas.Avalonia | **FAIL** |"
+            fi
+            echo ""
+            echo "> Pack does not publish to NuGet. Artifacts are retained for 30 days."
+            echo ""
+
             # ── Artifacts ─────────────────────────────────────────────
             echo "### Artifacts"
             echo ""
             echo "- **test-results-trx**: TRX files (importable in VS/Rider)"
             echo "- **coverage-cobertura**: Cobertura XML per test project"
+            echo "- **nupkg-core**: VirtualCanvas.Core .nupkg"
+            echo "- **nupkg-avalonia**: VirtualCanvas.Avalonia .nupkg"
             echo ""
             echo "> Test environment notes: see [docs/TESTING.md](docs/TESTING.md)"
 
