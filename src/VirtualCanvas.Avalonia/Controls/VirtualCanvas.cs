@@ -443,6 +443,7 @@ public partial class VirtualCanvas : Control
         RemoveVisualChildInternal(visual);
         _visualMap.Remove(item);
         _itemMap.Remove(visual);
+        _pinnedItems.Remove(item);  // force override: stale pin cleaned up automatically
         _itemsRemoved++;
     }
 

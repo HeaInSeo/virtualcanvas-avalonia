@@ -230,18 +230,19 @@ public class PinningContractTests
         Assert.NotNull(canvas.VisualFromItem(item1b));
     }
 
-    // ── 5. ForceVirtualizeItem bypasses pinning ───────────────────────────────
+    // ── 5. ForceVirtualizeItem bypasses pinning AND clears stale pin ─────────
 
     /// <summary>
-    /// <see cref="VCCanvas.ForceVirtualizeItem(ISpatialItem)"/> is the "force" escape hatch
-    /// that bypasses pinning. The caller explicitly overrides the pin.
+    /// <see cref="VCCanvas.ForceVirtualizeItem(ISpatialItem)"/> bypasses pinning
+    /// and also clears the pin entry (stale pin cleanup, I-3).
     /// <para>
-    /// This preserves the existing "force" contract: the caller takes full
-    /// responsibility when using force removal.
+    /// <b>I-3 contract:</b> force removal = caller override. Overriding pin implicitly
+    /// means the consumer no longer needs the protection, so the pin is cleaned up
+    /// automatically. No stale entry remains in <c>_pinnedItems</c>.
     /// </para>
     /// </summary>
     [AvaloniaFact]
-    public async Task ForceVirtualize_BypassesPinning()
+    public async Task ForceVirtualize_BypassesPinning_AndClearsStalePinEntry()
     {
         var canvas = new VCCanvas { VisualFactory = new LifecycleViewerFactory(), IsVirtualizing = false };
 
@@ -250,13 +251,14 @@ public class PinningContractTests
         await Flush();
 
         canvas.Pin(item);
+        Assert.True(canvas.IsPinned(item));
         Assert.NotNull(canvas.VisualFromItem(item));
 
-        // ForceVirtualizeItem bypasses pin.
+        // ForceVirtualizeItem: removes visual AND clears pin entry (I-3).
         canvas.ForceVirtualizeItem(item);
 
         Assert.Null(canvas.VisualFromItem(item));   // removed despite pin
-        Assert.True(canvas.IsPinned(item));          // pin set is NOT auto-cleared
+        Assert.False(canvas.IsPinned(item));         // pin set auto-cleared (no stale entry)
     }
 
     // ── 6. IsVisible=false overrides pin ─────────────────────────────────────
