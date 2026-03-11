@@ -137,6 +137,12 @@ public partial class VirtualCanvas : Control
     private readonly Dictionary<ISpatialItem, Control> _visualMap = new();
     private readonly Dictionary<Control, ISpatialItem> _itemMap = new();
 
+    // Pinned items are exempt from normal virtualization (ShouldVirtualize returns false).
+    // Identity is reference-based, matching _visualMap.
+    // Teardown (Items==null) and explicit hide (!IsVisible) still override pinning.
+    // ForceVirtualizeItem bypasses pinning by design.
+    private readonly HashSet<ISpatialItem> _pinnedItems = new();
+
     private IVisualFactory _factory;
     private readonly IVisualFactory _defaultFactory;
 
@@ -185,12 +191,13 @@ public partial class VirtualCanvas : Control
         if (_doingLayout) return;
 
         // If index is now empty, immediately remove all realized visuals.
-        // factory.Virtualize is called first so the factory can perform pool cleanup
-        // on the same path as a normal remove (where ShouldVirtualize calls it).
+        // Pinned items are skipped: they remain realized even with an empty snapshot.
+        // factory.Virtualize is called first (I-1) so pool cleanup is always notified.
         if (Items != null && !Items.Any())
         {
             foreach (var pair in _visualMap.ToList())
             {
+                if (_pinnedItems.Contains(pair.Key)) continue;
                 _factory.Virtualize(pair.Value);
                 ForceVirtualizeItem(pair.Key, pair.Value);
             }
@@ -455,10 +462,40 @@ public partial class VirtualCanvas : Control
 
     private bool ShouldVirtualize(ISpatialItem item, Control visual)
     {
-        if (Items == null || !item.IsVisible) return true;
-        if (visual.IsFocused) return false;
+        if (Items == null || !item.IsVisible) return true;  // teardown / explicit hide always wins
+        if (_pinnedItems.Contains(item)) return false;       // pin: consumer-managed, ref-based
+        if (visual.IsFocused) return false;                  // focus: Avalonia keyboard focus
         return _factory.Virtualize(visual);
     }
+
+    #region Pinning
+
+    /// <summary>
+    /// Prevents <paramref name="item"/> from being virtualized by normal realization passes.
+    /// A pinned item's <see cref="Control"/> is kept alive even when the item is outside
+    /// the viewbox or absent from the current snapshot.
+    /// <para>
+    /// <b>Contract:</b>
+    /// <list type="bullet">
+    ///   <item>Pin identity is reference-based (same as <c>_visualMap</c>).
+    ///         Replacing an item with a new object instance does NOT transfer the pin.</item>
+    ///   <item>Teardown (<c>Items == null</c>) and explicit hide
+    ///         (<c>item.IsVisible == false</c>) override pinning.</item>
+    ///   <item><see cref="ForceVirtualizeItem(ISpatialItem)"/> bypasses pinning by design.</item>
+    ///   <item>The consumer is responsible for calling <see cref="Unpin"/> when the item
+    ///         no longer needs protection (e.g., drag ends, selection cleared).</item>
+    /// </list>
+    /// </para>
+    /// </summary>
+    public void Pin(ISpatialItem item)   => _pinnedItems.Add(item);
+
+    /// <summary>Removes the pin for <paramref name="item"/>. No-op if not pinned.</summary>
+    public void Unpin(ISpatialItem item) => _pinnedItems.Remove(item);
+
+    /// <summary>Returns <c>true</c> if <paramref name="item"/> is currently pinned.</summary>
+    public bool IsPinned(ISpatialItem item) => _pinnedItems.Contains(item);
+
+    #endregion
 
     /// <summary>Returns the realized control for <paramref name="item"/>, or <c>null</c>.</summary>
     public Control? VisualFromItem(ISpatialItem item)
