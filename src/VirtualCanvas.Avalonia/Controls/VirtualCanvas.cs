@@ -185,10 +185,15 @@ public partial class VirtualCanvas : Control
         if (_doingLayout) return;
 
         // If index is now empty, immediately remove all realized visuals.
+        // factory.Virtualize is called first so the factory can perform pool cleanup
+        // on the same path as a normal remove (where ShouldVirtualize calls it).
         if (Items != null && !Items.Any())
         {
             foreach (var pair in _visualMap.ToList())
+            {
+                _factory.Virtualize(pair.Value);
                 ForceVirtualizeItem(pair.Key, pair.Value);
+            }
         }
 
         InvalidateReality();

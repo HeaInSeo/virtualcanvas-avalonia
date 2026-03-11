@@ -156,25 +156,28 @@ public class LifecycleContractTests
         Assert.NotNull(canvas.VisualFromItem(keep));
     }
 
-    // ── 3. Empty-snapshot fast path: factory.Virtualize NOT called ────────────
+    // ── 3. Empty-snapshot fast path: factory.Virtualize NOW called ──────────────
 
     /// <summary>
-    /// <b>Contract gap (hybrid risk):</b>
     /// When <c>canvas.Items = emptySnapshot</c>, <c>Items_Changed</c> detects
-    /// <c>!Items.Any()</c> and calls <c>ForceVirtualizeItem</c> synchronously for all items.
-    /// <c>ForceVirtualizeItem</c> does NOT call <c>factory.Virtualize</c>.
+    /// <c>!Items.Any()</c> and immediately removes all realized visuals.
     /// <para>
-    /// Consequence: the factory/pool cleanup callback is silently skipped on this path.
-    /// A DagEdit pool that relies on <c>factory.Virtualize</c> for Control cleanup
-    /// will leak Controls if the canvas is cleared via an empty snapshot.
+    /// <b>Fixed (I-1):</b> <c>factory.Virtualize</c> is now called once per item
+    /// before <c>ForceVirtualizeItem</c>, ensuring pool cleanup runs on this path too.
     /// </para>
     /// <para>
-    /// Note: the subsequent <c>InvalidateReality()</c> has no items to process,
-    /// so <c>factory.Virtualize</c> is never called — VirtualizeCallCount stays 0.
+    /// Call count difference vs normal remove:
+    /// <list type="bullet">
+    ///   <item>Normal remove: <c>factory.Virtualize</c> called <b>2×</b> per item
+    ///         (collection phase + execution phase via <c>ShouldVirtualize</c>).</item>
+    ///   <item>Empty-snapshot fast path: <c>factory.Virtualize</c> called <b>1×</b>
+    ///         per item (no collection phase — direct loop in <c>Items_Changed</c>).</item>
+    /// </list>
+    /// The semantic guarantee (cleanup callback fires) is now consistent across both paths.
     /// </para>
     /// </summary>
     [AvaloniaFact]
-    public async Task Lifecycle_EmptySnapshot_ForceVirtualize_FactoryVirtualizeNotCalled()
+    public async Task Lifecycle_EmptySnapshot_ForceVirtualize_FactoryVirtualizeCalledOnce()
     {
         var factory = new LifecycleObservingFactory();
         var canvas  = new VCCanvas { VisualFactory = factory, IsVirtualizing = false };
@@ -193,8 +196,8 @@ public class LifecycleContractTests
         // Item is gone from _visualMap and visual tree.
         Assert.Null(canvas.VisualFromItem(item));
 
-        // !! factory.Virtualize was NOT called — pool cleanup skipped.
-        Assert.Equal(0, factory.VirtualizeCallCount);  // VirtualizeCallCount unchanged
+        // factory.Virtualize called once per item on the fast path (no double-call).
+        Assert.Equal(1, factory.VirtualizeCallCount);
     }
 
     // ── 4. Remove + re-add with new object ───────────────────────────────────
