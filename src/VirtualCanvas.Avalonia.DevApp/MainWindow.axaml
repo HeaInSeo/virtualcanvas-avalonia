@@ -7,6 +7,51 @@
 
   <DockPanel>
 
+    <!-- Mode toggle toolbar -->
+    <Border DockPanel.Dock="Top"
+            Background="#2D2D30"
+            Padding="8,4">
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button x:Name="BtnDemoMode"
+                Content="Demo (5k items)"
+                Click="OnDemoModeClick"
+                FontSize="11"/>
+        <Button x:Name="BtnViewerMode"
+                Content="Viewer PoC (projected)"
+                Click="OnViewerModeClick"
+                FontSize="11"/>
+        <TextBlock x:Name="ModeLabel"
+                   Foreground="#888888"
+                   FontSize="11"
+                   VerticalAlignment="Center"
+                   Text="Mode: Demo"/>
+
+        <!-- Viewer PoC lifecycle controls — hidden until viewer mode is active -->
+        <StackPanel x:Name="ViewerControls"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    IsVisible="False">
+          <Border Width="1" Background="#555555" Margin="4,0"/>
+          <Button Content="+ Node"
+                  Click="OnViewerAddNode"
+                  FontSize="11"
+                  ToolTip.Tip="Add a new projected node to the viewer scene"/>
+          <Button Content="− Last"
+                  Click="OnViewerRemoveLast"
+                  FontSize="11"
+                  ToolTip.Tip="Remove the most recently added node"/>
+          <Button Content="Toggle Hide"
+                  Click="OnViewerToggleHide"
+                  FontSize="11"
+                  ToolTip.Tip="Toggle IsVisible on Filter B (in-place, no remove/reinsert)"/>
+          <Button Content="Move Source"
+                  Click="OnViewerMoveSource"
+                  FontSize="11"
+                  ToolTip.Tip="Shift Source node +100 px (remove → update Bounds → reinsert)"/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
     <!-- Status bar (2 rows) -->
     <Border DockPanel.Dock="Bottom"
             Background="#2D2D30"

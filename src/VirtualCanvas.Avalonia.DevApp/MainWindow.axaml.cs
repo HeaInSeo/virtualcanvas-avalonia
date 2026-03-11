@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using VirtualCanvas.Avalonia.Controls;
 using VirtualCanvas.Avalonia.DevApp.Demo;
 using VirtualCanvas.Avalonia.DevApp.Telemetry;
+using VirtualCanvas.Avalonia.DevApp.Viewer;
 using VirtualCanvas.Core.Geometry;
 using VirtualCanvas.Core.Spatial;
 
@@ -28,6 +29,15 @@ public partial class MainWindow : Window
     private static readonly IBrush SelectionBorderBrush = Brushes.White;
     private static readonly global::Avalonia.Thickness SelectionThickness = new(3);
     private static readonly global::Avalonia.Thickness NormalThickness = new(1);
+
+    // ── Mode ─────────────────────────────────────────────────────────
+    private bool _isViewerMode;
+
+    // ── Viewer lifecycle state ────────────────────────────────────────
+    // _projectionSource is the DagEdit-side seam simulator.
+    // It owns the node set; SyncViewerToCanvas() wires it to VCA.
+    private ProjectionSourceHarness? _projectionSource;
+    private int                       _nextNodeId = 10;
 
     // ── Telemetry ────────────────────────────────────────────────────
     private readonly PerformanceTelemetry _telemetry = new();
@@ -219,7 +229,9 @@ public partial class MainWindow : Window
         }
         else
         {
-            b.BorderBrush = DemoVisualFactory.NormalBorderBrush;
+            b.BorderBrush     = _isViewerMode
+                ? ProjectedNodeVisualFactory.NormalBorderBrush
+                : DemoVisualFactory.NormalBorderBrush;
             b.BorderThickness = NormalThickness;
         }
     }
@@ -239,7 +251,12 @@ public partial class MainWindow : Window
     private void UpdateStatus(int realized)
     {
         var vb = Canvas.ActualViewbox;
-        string sel = Canvas.SelectedItem is DemoItem d ? $"#{d.Index}" : "none";
+        string sel = Canvas.SelectedItem switch
+        {
+            DemoItem d          => $"Demo #{d.Index}",
+            ProjectedNodeItem p => $"Node \"{p.Label}\"",
+            _                   => "none",
+        };
         StatusText.Text =
             $"Scale: {Canvas.Scale:F2}x  |  " +
             $"Offset: ({Canvas.Offset.X:F0}, {Canvas.Offset.Y:F0})  |  " +
@@ -265,6 +282,163 @@ public partial class MainWindow : Window
     }
 
     // ── Data setup ────────────────────────────────────────────────────
+
+    // ── Mode switching ────────────────────────────────────────────────
+
+    private void OnDemoModeClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+        => SetDemoMode();
+
+    private void OnViewerModeClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+        => SetViewerMode();
+
+    private void SetDemoMode()
+    {
+        _isViewerMode = false;
+        Canvas.SelectedItem = null;
+        // Disconnect harness before switching away from viewer mode.
+        if (_projectionSource != null)
+        {
+            _projectionSource.ProjectionChanged -= OnProjectionChanged;
+            _projectionSource = null;
+        }
+        Canvas.Scale  = 1.0;
+        Canvas.Offset = new Point(0, 0);
+        Canvas.VisualFactory = new DemoVisualFactory();
+        Canvas.Items = BuildSpatialIndex();
+        ModeLabel.Text = "Mode: Demo";
+        ViewerControls.IsVisible = false;
+    }
+
+    private void SetViewerMode()
+    {
+        _isViewerMode = true;
+        Canvas.SelectedItem = null;
+        Canvas.Scale  = 1.0;
+        Canvas.Offset = new Point(0, 0);
+        Canvas.VisualFactory = new ProjectedNodeVisualFactory();
+
+        // Create harness and wire its change signal to canvas index rebuild.
+        // Wiring: source.ProjectionChanged → SyncViewerToCanvas → canvas.Items = snapshot.
+        if (_projectionSource != null)
+            _projectionSource.ProjectionChanged -= OnProjectionChanged;
+
+        _projectionSource = new ProjectionSourceHarness();
+        _projectionSource.ProjectionChanged += OnProjectionChanged;
+        _nextNodeId = 10;
+
+        // Populate initial scene via harness.
+        // Each Add fires ProjectionChanged → SyncViewerToCanvas → canvas.Items rebuild.
+        // Rapid-fire triggers are OK: VCA throttling cancels stale passes; only the final
+        // realization pass (after all Adds) actually runs.
+        PopulateInitialScene();
+
+        ModeLabel.Text = "Mode: Viewer PoC";
+        ViewerControls.IsVisible = true;
+    }
+
+    // ── Projection-to-canvas wiring ───────────────────────────────────
+    // One handler: source changed → full snapshot rebuild → canvas.Items replaced.
+    // This is the "证明用" wiring, NOT the final architecture.
+    // Key property: nodes reuse the SAME ProjectedNodeItem object references,
+    // so VCA's _visualMap lookup finds them and reuses existing Controls.
+
+    private void OnProjectionChanged(object? sender, EventArgs e)
+        => SyncViewerToCanvas();
+
+    private void SyncViewerToCanvas()
+    {
+        if (_projectionSource == null) return;
+
+        // Full snapshot: create a fresh SpatialIndex from the current harness nodes.
+        // Avoids SpatialIndex.Clear()'s internal Changed notification (double-fire).
+        var snapshot = new SpatialIndex { Extent = new VCRect(0, 0, 1800, 600) };
+        foreach (var n in _projectionSource.Nodes)
+            snapshot.Insert(n);
+
+        Canvas.Items = snapshot;  // Items_Changed fires once; throttling handles the rest
+    }
+
+    // ── Viewer lifecycle handlers ─────────────────────────────────────
+    // Buttons call harness methods → ProjectionChanged → SyncViewerToCanvas → Canvas refresh.
+
+    private void OnViewerAddNode(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!_isViewerMode || _projectionSource == null) return;
+
+        int col = _projectionSource.Nodes.Count % 6;
+        _projectionSource.Add(new ProjectedNodeItem
+        {
+            Id    = $"N{_nextNodeId++}",
+            Label = $"Node {_nextNodeId - 1}",
+            Bounds = new VCRect(60 + col * 260, 360, 200, 60),
+            ZIndex = 2,
+        });
+    }
+
+    private void OnViewerRemoveLast(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!_isViewerMode || _projectionSource == null) return;
+
+        var last = _projectionSource.Last;
+        if (last == null) return;
+        if (ReferenceEquals(Canvas.SelectedItem, last)) Canvas.SelectedItem = null;
+        _projectionSource.Remove(last.Id);
+    }
+
+    private void OnViewerToggleHide(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!_isViewerMode || _projectionSource == null) return;
+
+        // Toggle IsVisible on "Filter B" (N3) or last node.
+        // Harness.Move mutates Bounds in-place → same object reference preserved.
+        var target = _projectionSource.FindById("N3") ?? _projectionSource.Last;
+        if (target == null) return;
+        _projectionSource.SetVisible(target.Id, !target.IsVisible);
+    }
+
+    private void OnViewerMoveSource(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (!_isViewerMode || _projectionSource == null) return;
+
+        // Harness.Move mutates Bounds in-place on the same ProjectedNodeItem object.
+        // SyncViewerToCanvas rebuilds the index with the same object reference,
+        // so VCA's _visualMap still finds the item → Control is REUSED, not re-created.
+        var source = _projectionSource.FindById("N1");
+        if (source == null) return;
+
+        _projectionSource.Move("N1", new VCRect(
+            source.Bounds.X + 100, source.Bounds.Y,
+            source.Bounds.Width,   source.Bounds.Height));
+    }
+
+    /// <summary>
+    /// Populates the initial viewer scene via harness.
+    /// Source → [Filter A, Filter B] → Merge → Transform → Sink.
+    /// An IsVisible=false sentinel is also added to exercise VCA's pre-filtering.
+    /// </summary>
+    private void PopulateInitialScene()
+    {
+        const double NodeW = 200, NodeH = 60, BaseY = 200;
+
+        // Visible pipeline nodes — each Add fires ProjectionChanged.
+        foreach (var node in new[]
+        {
+            new ProjectedNodeItem { Id = "N1", Label = "Source",    Bounds = new VCRect( 60, BaseY,      NodeW, NodeH), ZIndex = 1 },
+            new ProjectedNodeItem { Id = "N2", Label = "Filter A",  Bounds = new VCRect(340, BaseY - 80, NodeW, NodeH), ZIndex = 1 },
+            new ProjectedNodeItem { Id = "N3", Label = "Filter B",  Bounds = new VCRect(340, BaseY + 80, NodeW, NodeH), ZIndex = 1 },
+            new ProjectedNodeItem { Id = "N4", Label = "Merge",     Bounds = new VCRect(620, BaseY,      NodeW, NodeH), ZIndex = 1 },
+            new ProjectedNodeItem { Id = "N5", Label = "Transform", Bounds = new VCRect(900, BaseY,      NodeW, NodeH), ZIndex = 1 },
+            new ProjectedNodeItem { Id = "N6", Label = "Sink",      Bounds = new VCRect(1180, BaseY,     NodeW, NodeH), ZIndex = 1 },
+        })
+            _projectionSource!.Add(node);
+
+        // IsVisible=false sentinel: harness tracks it; VCA's pre-filter skips it.
+        _projectionSource!.Add(new ProjectedNodeItem
+        {
+            Id = "N-dropped", Label = "Dropped",
+            Bounds = new VCRect(500, 20, NodeW, NodeH), ZIndex = 0, IsVisible = false,
+        });
+    }
 
     private static SpatialIndex BuildSpatialIndex()
     {

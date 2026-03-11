@@ -31,6 +31,14 @@ public sealed class SpatialIndex : ISpatialIndex
     public void Insert(ISpatialItem item)
         => _tree.Insert(item, item.Bounds, item.Priority);
 
+    /// <summary>
+    /// Removes <paramref name="item"/> from the index.
+    /// Searches the full tree extent so callers do not need to track the original bounds.
+    /// Call <see cref="RaiseChanged"/> after the batch is complete to notify the canvas.
+    /// </summary>
+    /// <returns><c>true</c> if the item was found and removed; <c>false</c> otherwise.</returns>
+    public bool Remove(ISpatialItem item) => _tree.Remove(item);
+
     /// <summary>Clears all items and raises <see cref="Changed"/>.</summary>
     public void Clear()
     {
