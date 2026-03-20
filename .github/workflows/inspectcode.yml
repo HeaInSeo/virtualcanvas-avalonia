@@ -1,0 +1,365 @@
+name: InspectCode
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: inspectcode-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read          # gh run download (이전 artifact 취득)용
+
+jobs:
+  inspectcode:
+    name: "ReSharper InspectCode"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore dependencies
+        run: dotnet restore VirtualCanvas.Avalonia.sln
+
+      - name: Run ReSharper InspectCode
+        uses: JetBrains/ReSharper-InspectCode@v0.11
+        with:
+          solution: VirtualCanvas.Avalonia.sln
+          format: Sarif
+          output: inspectcode.sarif.json
+          dotnet-version: "8.0.x"
+          dotnetcoresdk: "8.0.415"
+
+      # 현재 run 이전의 가장 최근 성공 실행에서 warning-count artifact를 취득
+      # 실패해도 workflow 전체를 실패시키지 않는다 (비교는 best-effort)
+      - name: Fetch previous warning-count artifact
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV_RUN_ID=$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "inspectcode.yml" \
+            --branch "$GITHUB_REF_NAME" \
+            --status success \
+            --limit 10 \
+            --json databaseId \
+            --jq ".[] | select(.databaseId | tostring != \"$GITHUB_RUN_ID\") | .databaseId" \
+            2>/dev/null | head -1 || true)
+
+          if [ -z "$PREV_RUN_ID" ]; then
+            echo "No previous successful run found — comparison will be skipped"
+            exit 0
+          fi
+
+          echo "Previous run ID: $PREV_RUN_ID"
+
+          gh run download "$PREV_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "warning-count" \
+            --dir "_prev_artifact" 2>/dev/null || {
+            echo "::warning::Could not download previous warning-count artifact"
+            exit 0
+          }
+
+          # gh run download 는 --dir 아래 <artifact-name>/ 디렉토리를 만든다
+          FOUND=$(find _prev_artifact -name "warning-count.json" -type f | head -1)
+          if [ -n "$FOUND" ]; then
+            cp "$FOUND" prev-warning-count.json
+            echo "Loaded previous artifact from run $PREV_RUN_ID: $FOUND"
+          else
+            echo "::warning::warning-count.json not found in downloaded artifact"
+          fi
+
+      - name: Parse SARIF and generate summary + count artifact
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, sys
+          from collections import defaultdict
+          from datetime import datetime, timezone
+
+          sarif_path = "inspectcode.sarif.json"
+          if not os.path.exists(sarif_path):
+              print("::warning::inspectcode.sarif.json not found — skipping summary")
+              sys.exit(0)
+
+          with open(sarif_path, encoding="utf-8") as f:
+              sarif = json.load(f)
+
+          # ── collect results ──────────────────────────────────────────────
+          results = []
+          rules_map: dict[str, dict] = {}
+
+          for run in sarif.get("runs", []):
+              driver = run.get("tool", {}).get("driver", {})
+              for rule in driver.get("rules", []):
+                  rid = rule.get("id", "")
+                  rules_map[rid] = {
+                      "name": rule.get("name", rid),
+                      "severity": (
+                          rule.get("defaultConfiguration", {})
+                              .get("level", "warning")
+                      ),
+                  }
+              for r in run.get("results", []):
+                  results.append(r)
+
+          total = len(results)
+
+          # ── severity / rule breakdown ────────────────────────────────────
+          SEV_ORDER = ["error", "warning", "note", "none", "unknown"]
+          by_severity: dict[str, int] = defaultdict(int)
+          by_rule: dict[str, int] = defaultdict(int)
+
+          for r in results:
+              by_severity[r.get("level", "warning")] += 1
+              by_rule[r.get("ruleId", "unknown")] += 1
+
+          top_rules = sorted(by_rule.items(), key=lambda x: x[1], reverse=True)[:10]
+
+          # ── env vars → absolute URLs (상대경로 사용 금지) ─────────────────
+          server_url = os.environ.get("GITHUB_SERVER_URL", "https://github.com")
+          repo       = os.environ.get("GITHUB_REPOSITORY", "")
+          sha        = os.environ.get("GITHUB_SHA", "unknown")
+          branch     = os.environ.get("GITHUB_REF_NAME", "unknown")
+          run_id     = os.environ.get("GITHUB_RUN_ID", "unknown")
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+          generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+          run_url          = f"{server_url}/{repo}/actions/runs/{run_id}"
+          commit_url       = f"{server_url}/{repo}/commit/{sha}"
+          integration_url  = f"{server_url}/{repo}/blob/{sha}/docs/INTEGRATION_CONTRACT.md"
+
+          # ── load previous run data ───────────────────────────────────────
+          prev_data: dict | None = None
+          if os.path.exists("prev-warning-count.json"):
+              try:
+                  with open("prev-warning-count.json", encoding="utf-8") as f:
+                      prev_data = json.load(f)
+              except Exception as e:
+                  print(f"::warning::Failed to parse prev-warning-count.json: {e}")
+
+          def delta_str(cur: int, prev_val: int) -> str:
+              d = cur - prev_val
+              if d == 0:
+                  return "±0"
+              return f"+{d} [up]" if d > 0 else f"{d} [down]"
+
+          # ── severity rows (column set differs by availability of prev) ───
+          sev_rows = ""
+          for sev in SEV_ORDER:
+              cur_cnt = by_severity.get(sev, 0)
+              if not cur_cnt and sev not in ("error", "warning"):
+                  continue
+              if prev_data is not None:
+                  prev_cnt = prev_data.get("bySeverity", {}).get(sev, 0)
+                  sev_rows += f"| {sev} | {prev_cnt} | {cur_cnt} | {delta_str(cur_cnt, prev_cnt)} |\n"
+              else:
+                  sev_rows += f"| {sev} | {cur_cnt} |\n"
+
+          # ── rule rows ────────────────────────────────────────────────────
+          rule_rows = ""
+          for rule_id, count in top_rules:
+              name = rules_map.get(rule_id, {}).get("name", rule_id)
+              rule_rows += f"| `{rule_id}` | {name} | {count} |\n"
+
+          # ── comparison / fallback block ──────────────────────────────────
+          if prev_data is not None:
+              prev_total   = prev_data.get("total", 0)
+              prev_commit  = str(prev_data.get("commit", "unknown"))[:7]
+              prev_run_id  = prev_data.get("workflowRunId", "unknown")
+              prev_run_url = f"{server_url}/{repo}/actions/runs/{prev_run_id}"
+
+              total_headline = (
+                  f"### 총 경고: **{total}** "
+                  f"(이전: {prev_total}, 증감: {delta_str(total, prev_total)})"
+              )
+              compare_note = (
+                  f"> 이전 실행: [{prev_commit}]({prev_run_url})"
+                  f" | 현재 실행: [{sha[:7]}]({commit_url})"
+              )
+              sev_table_header = "| Severity | 이전 | 현재 | 증감 |\n|---|---|---|---|"
+          else:
+              total_headline   = f"### 총 경고: **{total}**"
+              compare_note     = "> [INFO] 이전 비교 데이터 없음 (첫 실행이거나 이전 artifact 없음)"
+              sev_table_header = "| Severity | Count |\n|---|---|"
+
+          # ── write Job Summary ────────────────────────────────────────────
+          md_parts = [
+              f"## ReSharper InspectCode — {generated_at}",
+              "",
+              f"> **이번 실행** | branch: `{branch}` | commit: [`{sha[:7]}`]({commit_url}) | [run #{run_id}]({run_url})",
+              "",
+              total_headline,
+              "",
+              compare_note,
+              "",
+              "#### Severity 별",
+              "",
+              sev_table_header,
+              sev_rows.rstrip(),
+              "",
+              "#### Rule 별 (Top 10)",
+              "",
+              "| Rule ID | Name | Count |",
+              "|---|---|---|",
+              rule_rows.rstrip(),
+              "",
+              "---",
+              f"> 참고: [INTEGRATION_CONTRACT.md]({integration_url}) | artifacts: `inspectcode-sarif`, `warning-count`",
+              "",
+          ]
+          md = "\n".join(md_parts)
+          with open(summary_path, "a", encoding="utf-8") as f:
+              f.write(md)
+
+          # ── warning-count.json ───────────────────────────────────────────
+          count_payload = {
+              "total": total,
+              "bySeverity": dict(by_severity),
+              "byRule": dict(by_rule),
+              "commit": sha,
+              "branch": branch,
+              "workflowRunId": run_id,
+              "generatedAt": generated_at,
+          }
+          with open("warning-count.json", "w", encoding="utf-8") as f:
+              json.dump(count_payload, f, indent=2)
+
+          print(f"Summary written. total={total}, prev_found={prev_data is not None}")
+          PYEOF
+
+      # Policy: InspectCode warnings may decrease or stay flat, but must not increase.
+      # Fail conditions: total OR warning-severity count goes up vs previous run.
+      # note/info: tracked in summary but do NOT trigger failure.
+      # No baseline: first run or missing artifact → pass with info notice.
+      - name: Check warning regression
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, sys
+
+          cur_path  = "warning-count.json"
+          prev_path = "prev-warning-count.json"
+          summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+
+          def append_summary(text: str) -> None:
+              with open(summary_path, "a", encoding="utf-8") as f:
+                  f.write(text)
+
+          if not os.path.exists(cur_path):
+              print("::warning::warning-count.json not found — regression check skipped")
+              sys.exit(0)
+
+          if not os.path.exists(prev_path):
+              append_summary(
+                  "\n### 회귀 검사\n\n"
+                  "> [INFO] **baseline 없음** — 첫 실행이거나 이전 artifact 없음. "
+                  "이번 실행이 새 baseline이 된다.\n\n"
+              )
+              print("[INFO] No previous baseline — regression check skipped (this run becomes the baseline)")
+              sys.exit(0)
+
+          with open(cur_path,  encoding="utf-8") as f:
+              cur  = json.load(f)
+          with open(prev_path, encoding="utf-8") as f:
+              prev = json.load(f)
+
+          cur_total   = cur.get("total", 0)
+          prev_total  = prev.get("total", 0)
+          cur_warn    = cur.get("bySeverity",  {}).get("warning", 0)
+          prev_warn   = prev.get("bySeverity", {}).get("warning", 0)
+          cur_err     = cur.get("bySeverity",  {}).get("error",   0)
+          prev_err    = prev.get("bySeverity", {}).get("error",   0)
+
+          failed  = False
+          reasons = []
+          if cur_total > prev_total:
+              reasons.append(f"total {prev_total} → {cur_total} (+{cur_total - prev_total})")
+              failed = True
+          if cur_warn > prev_warn:
+              reasons.append(f"warning {prev_warn} → {cur_warn} (+{cur_warn - prev_warn})")
+              failed = True
+
+          dt  = cur_total - prev_total
+          dw  = cur_warn  - prev_warn
+          de  = cur_err   - prev_err
+
+          def sign(n: int) -> str:
+              return f"+{n}" if n > 0 else str(n)
+
+          table = (
+              "| 항목 | 이전 | 현재 | 증감 |\n"
+              "|---|---|---|---|\n"
+              f"| 총 경고 | {prev_total} | {cur_total} | {sign(dt)} |\n"
+              f"| error | {prev_err} | {cur_err} | {sign(de)} |\n"
+              f"| warning | {prev_warn} | {cur_warn} | {sign(dw)} |\n"
+          )
+
+          if failed:
+              gate_md = (
+                  "\n### 회귀 검사 결과: [FAIL]\n\n"
+                  + table
+                  + f"\n> **Regression detected**: {'; '.join(reasons)}\n\n"
+                  "> Policy: *InspectCode warnings may decrease or stay flat, but must not increase.*\n\n"
+              )
+              append_summary(gate_md)
+              print(f"::error::InspectCode regression detected: {'; '.join(reasons)}")
+              print("Policy: InspectCode warnings may decrease or stay flat, but must not increase.")
+              sys.exit(1)
+          else:
+              gate_md = (
+                  "\n### 회귀 검사 결과: [PASS]\n\n"
+                  + table
+                  + "\n> No warning regression.\n\n"
+                  "> Policy: *InspectCode warnings may decrease or stay flat, but must not increase.*\n\n"
+              )
+              append_summary(gate_md)
+              print(f"[PASS] No regression. total: {prev_total}->{cur_total} ({sign(dt)}), warning: {prev_warn}->{cur_warn} ({sign(dw)})")
+              sys.exit(0)
+          PYEOF
+
+      - name: Upload InspectCode SARIF report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspectcode-sarif
+          path: inspectcode.sarif.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload warning count artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warning-count
+          path: warning-count.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      # Note: JetBrains/ReSharper-InspectCode@v0.11 already uploads SARIF internally
+      # via github/codeql-action/upload-sarif@v3 (category: resharper-inspectcode).
+      # A second upload-sarif call in the same job triggers "duplicate tool/category" error.

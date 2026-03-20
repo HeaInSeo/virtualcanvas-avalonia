@@ -1,0 +1,85 @@
+# EditorConfig: https://editorconfig.org
+# VirtualCanvas.Avalonia — code style rules (aligned with DagEdit)
+
+root = true
+
+[*]
+indent_style             = space
+indent_size              = 4
+end_of_line              = lf
+charset                  = utf-8
+trim_trailing_whitespace = true
+insert_final_newline     = true
+
+[*.{csproj,props,targets,axaml,xml,config}]
+indent_size = 2
+
+[*.json]
+indent_size = 2
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size                                          = 4
+tab_width                                            = 4
+csharp_indent_case_contents                          = true
+csharp_indent_switch_labels                          = true
+csharp_indent_labels                                 = flush_left
+csharp_new_line_before_open_brace                    = all
+csharp_new_line_before_else                          = true
+csharp_new_line_before_catch                         = true
+csharp_new_line_before_finally                       = true
+
+# var 사용: 타입이 명확할 때만 var 허용
+csharp_style_var_for_built_in_types                  = false:suggestion
+csharp_style_var_when_type_is_apparent               = true:suggestion
+csharp_style_var_elsewhere                           = false:suggestion
+
+# this. 한정자 — 강제하지 않음
+dotnet_style_qualification_for_field                 = false:suggestion
+dotnet_style_qualification_for_property              = false:suggestion
+dotnet_style_qualification_for_method                = false:suggestion
+dotnet_style_qualification_for_event                 = false:suggestion
+
+# 언어 키워드 강제 (int/string, not Int32/String)
+dotnet_style_predefined_type_for_locals_parameters_members = true:warning
+dotnet_style_predefined_type_for_member_access             = true:warning
+
+# using 정렬
+dotnet_sort_system_directives_first          = true
+dotnet_separate_import_directive_groups      = false
+
+# private 필드 네이밍: _camelCase
+dotnet_naming_rule.private_fields_underscore_camel.severity  = warning
+dotnet_naming_rule.private_fields_underscore_camel.symbols   = private_fields
+dotnet_naming_rule.private_fields_underscore_camel.style     = underscore_camel_case
+dotnet_naming_symbols.private_fields.applicable_kinds        = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel_case.required_prefix    = _
+dotnet_naming_style.underscore_camel_case.capitalization     = camel_case
+
+# ── Error-level 규칙 (DagEdit와 동일 기준) ──────────────────────────
+dotnet_diagnostic.SA1503.severity = error   # 중괄호 생략 금지
+dotnet_diagnostic.SA1400.severity = error   # 접근 제한자 반드시 명시
+dotnet_diagnostic.SA1106.severity = error   # 빈 statement 금지
+dotnet_diagnostic.IDE0059.severity = error  # 불필요한 할당 제거
+dotnet_diagnostic.IDE0060.severity = error  # 미사용 파라미터 제거
+dotnet_diagnostic.CS8600.severity  = error
+dotnet_diagnostic.CS8601.severity  = error
+dotnet_diagnostic.CS8602.severity  = error
+dotnet_diagnostic.CS8603.severity  = error
+dotnet_diagnostic.CS8604.severity  = error
+dotnet_diagnostic.CS8618.severity  = error
+dotnet_diagnostic.CS8625.severity  = error
+
+# ── 비활성화 (DagEdit와 동일) ────────────────────────────────────────
+dotnet_diagnostic.SA0001.severity = none    # XML 문서 파일 없음
+dotnet_diagnostic.SA1101.severity = none    # this. 한정자 강제 안 함
+dotnet_diagnostic.SA1124.severity = none    # #region 허용
+dotnet_diagnostic.SA1200.severity = none    # using 네임스페이스 내부 허용
+dotnet_diagnostic.SA1309.severity = none    # _prefix 필드 허용
+dotnet_diagnostic.SA1310.severity = none    # _prefix 상수 허용
